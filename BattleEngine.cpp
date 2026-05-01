@@ -265,3 +265,48 @@ std::optional<Position> BattleEngine::moveToward(BattleUnit* unit, BattleUnit* t
 
 // 备注：castSkill 方法实现略去，它将根据 SkillData 里面的 TargetType (AoE, 单体等) 
 // 遍历 allUnits 进行距离判断并结算伤害，同理生成对应的 ActionType::SkillDamage 压入 actionsOut 即可。
+// ==================== BattleEngine.cpp 底部补充 ====================
+
+// 快速模拟：直接调用正常模拟，但丢弃录像帧数据，节省内存
+BattleResult BattleEngine::quickSimulate(const std::vector<std::shared_ptr<MonsterInstance>>& playerUnits, 
+                                         const std::vector<std::shared_ptr<MonsterInstance>>& enemyUnits) {
+    BattleResult result = simulate(playerUnits, enemyUnits);
+    result.ticks.clear(); // 抛弃推演录像
+    return result;
+}
+
+// 释放技能逻辑
+void BattleEngine::castSkill(BattleUnit* caster, const std::vector<std::unique_ptr<BattleUnit>>& allUnits, std::vector<BattleAction>& actionsOut) {
+    BattleAction action;
+    action.type = ActionType::Cast;
+    action.uid = caster->uid;
+    action.skillName = caster->skill.name;
+    action.damageType = caster->skill.damageType;
+    action.from = Position{caster->row, caster->col};
+
+    // 简单实现：找到最近的敌人打出技能伤害
+    BattleUnit* target = findClosestEnemy(caster, allUnits);
+    if (target) {
+        action.targetUid = target->uid;
+        
+        // 伤害计算 (技能基础伤害)
+        int actualDmg = calcDamage(caster->skill.damage, caster->skill.damageType, target->armor, target->magicResist);
+        
+        applyDamage(target, actualDmg);
+        action.damage = actualDmg;
+        
+        // 记录技能附带的控制效果 (比如眩晕)
+        if (caster->skill.stunDuration > 0 && target->alive) {
+            target->stunTimer = caster->skill.stunDuration;
+            
+            BattleAction stunAction;
+            stunAction.type = ActionType::Stun;
+            stunAction.uid = caster->uid;
+            stunAction.targetUid = target->uid;
+            stunAction.amount = caster->skill.stunDuration;
+            actionsOut.push_back(stunAction);
+        }
+    }
+
+    actionsOut.push_back(action);
+}

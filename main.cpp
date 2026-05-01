@@ -2,7 +2,10 @@
 #include <string>
 #include "GameManager.h"
 #include "GameConfig.h"
-
+// --- 新增：专门为了解决 Windows 控制台中文乱码 ---
+#ifdef _WIN32
+#include <windows.h>
+#endif
 // 辅助函数：打印动作类型
 std::string getActionName(ActionType type) {
     switch(type) {
@@ -17,6 +20,10 @@ std::string getActionName(ActionType type) {
 }
 
 int main() {
+    // --- 新增：启动时强制控制台使用 UTF-8 ---
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     std::cout << "=== 自走棋 C++ 核心引擎测试启动 ===" << std::endl;
 
     // 1. 初始化游戏
@@ -26,10 +33,20 @@ int main() {
     std::cout << "玩家 [" << player->name << "] 已创建 | 金币: " << player->gold << " | 血量: " << player->hp << std::endl;
 
     // 2. 查看初始商店并购买
+    // std::cout << "\n--- 购买阶段 ---" << std::endl;
+    // for (size_t i = 0; i < player->shop.size(); i++) {
+    //     if (player->shop[i]) {
+    //         std::cout << "商店槽位 " << i << ": " << player->shop[i]->name 
+    //                   << " (" << player->shop[i]->id << ")" << std::endl;
+    //     }
+    // }
+    // 2. 查看初始商店并购买
     std::cout << "\n--- 购买阶段 ---" << std::endl;
     for (size_t i = 0; i < player->shop.size(); i++) {
         if (player->shop[i]) {
-            std::cout << "商店槽位 " << i << ": " << player->shop[i]->name 
+            // 通过实例的 id 去 GameConfig 查找基础模板数据
+            const auto* tmpl = GameConfig::getInstance().getMonsterTemplate(player->shop[i]->id);
+            std::cout << "商店槽位 " << i << ": " << (tmpl ? tmpl->name : "未知") 
                       << " (" << player->shop[i]->id << ")" << std::endl;
         }
     }

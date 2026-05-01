@@ -2,6 +2,7 @@
 #include "GameConfig.h"
 #include <random>
 #include <chrono>
+#include <algorithm>
 
 GameManager::GameManager(const std::string& playerName) {
     player = std::make_shared<Player>("p1_id", playerName);
@@ -76,7 +77,40 @@ void GameManager::generateEnemy() {
     }
 }
 
-// ... 省略透传给 Player 的基础操作 (如 return player->refreshShop(deck);) ...
+// ==================== GameManager.cpp 补充 ====================
+
+bool GameManager::refreshShop() {
+    return player->refreshShop(deck);
+}
+
+bool GameManager::buyXp() {
+    return player->buyXp();
+}
+
+bool GameManager::buyMonster(int shopIndex) {
+    // player->buyMonster 返回的是智能指针，转为 bool 表示是否购买成功
+    return player->buyMonster(shopIndex) != nullptr;
+}
+
+int GameManager::sellMonster(const std::string& uid) {
+    return player->sellMonster(uid);
+}
+
+bool GameManager::benchToBoard(int benchIndex, int row, int col) {
+    return player->benchToBoard(benchIndex, row, col);
+}
+
+bool GameManager::boardToBench(const std::string& uid) {
+    return player->boardToBench(uid);
+}
+
+bool GameManager::moveOnBoard(const std::string& uid, int newRow, int newCol) {
+    return player->moveOnBoard(uid, newRow, newCol);
+}
+
+bool GameManager::swapBoardBench(const std::string& boardUid, int benchIndex) {
+    return player->swapBoardBench(boardUid, benchIndex);
+}
 
 BattleResult GameManager::startBattle(bool detailed) {
     if (phase != "prepare" || player->board.empty()) {
