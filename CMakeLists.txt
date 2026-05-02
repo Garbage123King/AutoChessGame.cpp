@@ -22,6 +22,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 # --- 新增：在 Windows (MinGW) 下强制静态链接 C++ 标准库 ---
 if(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+    add_compile_definitions(NOMINMAX) # <--- 全局禁用 Windows 的 min/max 宏
+endif()
+
+# --- 新增：专门解决 MSVC (Visual Studio) 乱码和编译错误 ---
+if(MSVC)
+    add_compile_options(/utf-8)
 endif()
 
 # 2. 生成可执行文件
