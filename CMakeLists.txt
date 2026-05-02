@@ -8,12 +8,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 收集所有的源码文件
+# 将所有的 .h 和 .cpp 文件都显式列出来
 set(SOURCES
-    GameConfig.cpp
-    Deck.cpp
-    Player.cpp
-    BattleEngine.cpp
-    GameManager.cpp
+    Enums.h
+    MonsterData.h
+    GameConfig.h     GameConfig.cpp
+    Deck.h           Deck.cpp
+    Player.h         Player.cpp
+    BattleEngine.h   BattleEngine.cpp
+    GameManager.h    GameManager.cpp
     main.cpp
 )
 # 1. 设置全局输出目录（必须在 add_executable 之前声明！）
