@@ -19,6 +19,11 @@ set(SOURCES
 # 1. 设置全局输出目录（必须在 add_executable 之前声明！）
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
+# --- 新增：在 Windows (MinGW) 下强制静态链接 C++ 标准库 ---
+if(WIN32)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+endif()
+
 # 2. 生成可执行文件
 add_executable(AutochessTest ${SOURCES})
 
