@@ -16,6 +16,12 @@ set(SOURCES
     GameManager.cpp
     main.cpp
 )
+# 1. 设置全局输出目录（必须在 add_executable 之前声明！）
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-# 生成可执行文件
+# 2. 生成可执行文件
 add_executable(AutochessTest ${SOURCES})
+
+# 3. 为 Debug 版本自动添加 _d 后缀
+set_target_properties(AutochessTest PROPERTIES DEBUG_POSTFIX "_d")
+
