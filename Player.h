@@ -56,6 +56,8 @@ public:
 
     // 容器管理 (使用智能指针，避免内存泄漏)
     std::vector<std::shared_ptr<MonsterInstance>> board;
+    // 把备战区改成固定大小 (例如 9 个槽位)
+    static const int MAX_BENCH_SIZE = 9;
     std::vector<std::shared_ptr<MonsterInstance>> bench;
     std::vector<std::shared_ptr<MonsterInstance>> shop;
 

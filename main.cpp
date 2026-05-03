@@ -6,6 +6,60 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <iomanip> // <-- 新增这个，用于 std::setprecision 格式化时间
+#include <string>  // <--- 新增这一行！教 std::cout 如何打印 std::string
+#include <cstdio>  // 新增：引入 printf
+
+// --- 专门用于解析 30TPS 录像的战斗日志打印机 (printf 终极稳定版) ---
+void printBattleLog(const BattleResult& result, int maxLines = 100) {
+    printf("\n========== 📜 详细战斗日志 (Combat Log) ==========\n");
+    printf("战斗总耗时: %zu 帧 (%.2f 秒)\n", result.ticks.size(), result.ticks.size() / 30.0f);
+    printf("--------------------------------------------------\n");
+
+    int linesPrinted = 0;
+
+    // 遍历每一帧的录像
+    for (const auto& tick : result.ticks) {
+        if (tick.actions.empty()) continue;
+
+        float timeSec = tick.frame / 30.0f;
+
+        for (const auto& action : tick.actions) {
+            if (linesPrinted >= maxLines) {
+                printf("... (日志太长，为防止卡顿已截断，可调大 maxLines)\n");
+                return;
+            }
+
+            // 格式化前缀: [00.33s | 帧  10]
+            printf("[%05.2fs | 帧 %3d] ", timeSec, tick.frame);
+
+            // 翻译动作类型 (彻底抛弃 cout，使用 %s 和 %d 占位符)
+            switch (action.type) {
+            case ActionType::Windup:
+                printf("⚔️ %s 开始蓄力瞄准 -> %s\n", action.uid.c_str(), action.targetUid.c_str());
+                break;
+            case ActionType::SpawnProjectile:
+                printf("🏹 %s 射出弹道 -> 飞向 %s\n", action.uid.c_str(), action.targetUid.c_str());
+                break;
+            case ActionType::ProjectileHit:
+                printf("💥 %s 的弹道命中 %s，造成了 %d 点物理伤害！\n", action.uid.c_str(), action.targetUid.c_str(), action.damage);
+                break;
+            case ActionType::Cast:
+                printf("✨ %s 施放了技能【%s】！\n", action.uid.c_str(), action.skillName.c_str());
+                break;
+            case ActionType::Stun:
+                printf("💫 %s 被眩晕了！\n", action.targetUid.c_str());
+                break;
+            default:
+                printf("❓ %s 执行了未知的动作 (代码: %d)\n", action.uid.c_str(), static_cast<int>(action.type));
+                break;
+            }
+            linesPrinted++;
+        }
+    }
+    printf("==================================================\n\n");
+}
+
 // 辅助函数：打印动作类型
 std::string getActionName(ActionType type) {
     switch(type) {
@@ -57,6 +111,10 @@ int main() {
     
     std::cout << "购买后备战区数量: " << player->bench.size() << " | 剩余金币: " << player->gold << std::endl;
 
+    game.buyXp();
+
+    std::cout << "购买经验后玩家等级: " << player->level << " | 剩余金币: " << player->gold << std::endl;
+
     // 3. 部署到棋盘 (玩家阵地在 4-7 行)
     std::cout << "\n--- 部署阶段 ---" << std::endl;
     // 将备战区第 0 个怪放到 (4, 4)
@@ -65,7 +123,7 @@ int main() {
     }
     // 将现在的备战区第 0 个怪（原第 1 个）放到 (4, 5)
     if (!player->bench.empty()) {
-        if (game.benchToBoard(0, 4, 5)) {
+        if (game.benchToBoard(1, 4, 5)) {
             std::cout << "成功将棋子部署到 (4, 5)" << std::endl;
         }
     }
@@ -75,6 +133,9 @@ int main() {
     // 4. 开始战斗推演
     std::cout << "\n--- 战斗推演开始 ---" << std::endl;
     BattleResult result = game.startBattle(true); // true 表示需要详细的 Ticks 录像
+
+    // --- 新增：打印刚刚发生的战斗日志 ---
+    printBattleLog(result, 200); // 最多打印 200 条动作记录
 
     std::cout << "战斗结束! 胜者: " << result.winner << std::endl;
     std::cout << "玩家存活: " << result.playerSurvived << " | 敌人存活: " << result.enemySurvived << std::endl;

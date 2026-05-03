@@ -4,7 +4,10 @@
 #include <cmath>
 
 Player::Player(const std::string& id, const std::string& name)
-    : id(id), name(name) {}
+    : id(id), name(name) {
+    // 初始化时，强行塞入 9 个空指针，占住茅坑
+    bench.resize(MAX_BENCH_SIZE, nullptr);
+}
 
 int Player::getXpToLevel() const {
     if (level >= 10) return 9999;
@@ -55,8 +58,18 @@ bool Player::canBuyMonster(int shopIndex) const {
     const auto* templateData = GameConfig::getInstance().getMonsterTemplate(monster->id);
     if (!templateData) return false;
     
+    // 检查钱够不够
     if (gold < templateData->cost) return false;
-    if (bench.size() >= 9) return false; // 备战区满
+
+    // 检查备战区是否还有空位 (nullptr) ---
+    bool hasEmptySlot = false;
+    for (const auto& slot : bench) {
+        if (slot == nullptr) {
+            hasEmptySlot = true;
+            break;
+        }
+    }
+    if (!hasEmptySlot) return false; // 备战区满了，不让买！
     
     return true;
 }
@@ -68,7 +81,15 @@ std::shared_ptr<MonsterInstance> Player::buyMonster(int shopIndex) {
     const auto* templateData = GameConfig::getInstance().getMonsterTemplate(monster->id);
     
     gold -= templateData->cost;
-    bench.push_back(monster); // 加入备战区
+
+    // --- 核心改造：遍历寻找第一个 nullptr 槽位，把怪塞进去 ---
+    for (int i = 0; i < bench.size(); ++i) {
+        if (bench[i] == nullptr) {
+            bench[i] = monster;
+            break; // 放进去后立刻跳出循环
+        }
+    }
+    // 注意：绝对不能再用 bench.push_back(monster) 了！
     shop[shopIndex] = nullptr; // 商店格子置空
     
     checkMerge(); // 每次购买后检查是否可以合成升星
@@ -107,21 +128,32 @@ int Player::sellMonster(const std::string& uid) {
 }
 
 bool Player::benchToBoard(int benchIndex, int row, int col) {
+    // 1. 检查越界
     if (benchIndex < 0 || benchIndex >= static_cast<int>(bench.size())) return false;
-    if (static_cast<int>(board.size()) >= level) return false; // 棋盘人口上限
-    if (row < 4 || row > 7) return false; // 只能放在自己的半场
 
-    // 检查目标位置是否已被占用
-    bool occupied = std::any_of(board.begin(), board.end(), 
+    // --- 2. 新增：检查这个槽位到底有没有怪（不能把空气派上场！） ---
+    if (bench[benchIndex] == nullptr) return false;
+
+    // 3. 检查人口上限
+    if (static_cast<int>(board.size()) >= level) return false;
+    // 4. 检查是否在自己的半场
+    if (row < 4 || row > 7) return false;
+
+    // 5. 检查目标位置是否已被占用
+    bool occupied = std::any_of(board.begin(), board.end(),
         [&](const auto& m) { return m->row == row && m->col == col; });
     if (occupied) return false;
 
+    // 6. 执行上场逻辑
     auto monster = bench[benchIndex];
     monster->row = row;
     monster->col = col;
-    
+
     board.push_back(monster);
-    bench.erase(bench.begin() + benchIndex);
+
+    // --- 7. 核心修改：绝对不能用 erase！而是把原本的槽位置空 ---
+    bench[benchIndex] = nullptr;
+
     return true;
 }
 
@@ -196,37 +228,58 @@ void Player::checkMerge() {
 bool Player::tryMerge(int targetStar, int sourceStar) {
     std::unordered_map<std::string, std::vector<std::shared_ptr<MonsterInstance>>> groups;
     
-    // 收集棋盘和备战区中符合星级的怪
-    for (const auto& m : board) if (m->star == sourceStar) groups[m->id].push_back(m);
-    for (const auto& m : bench) if (m->star == sourceStar) groups[m->id].push_back(m);
+    // 1. 收集棋盘上的怪 (加上判空，以防万一)
+    for (const auto& m : board) {
+        if (m && m->star == sourceStar) groups[m->id].push_back(m);
+    }
+    
+    // 2. 收集备战区上的怪 (必须判空！因为里面有 nullptr)
+    for (const auto& m : bench) {
+        if (m && m->star == sourceStar) groups[m->id].push_back(m);
+    }
 
     for (const auto& pair : groups) {
         const auto& units = pair.second;
         if (units.size() >= 3) {
-            // 保留第一个怪，升星
+            // 保留第一个怪，升星，并恢复满血等基础状态 (自走棋经典设定)
             auto keep = units[0];
             keep->star = targetStar;
+            // 可选：如果是合成升星，一般会把当前血量按比例或者直接回满
+            // const auto* tmpl = GameConfig::getInstance().getMonsterTemplate(keep->id);
+            // keep->hp = ... 
 
-            // 记录要删除的两个怪的 UID
+            // 记录要当成材料吃掉的两个怪的 UID
             std::string removeUid1 = units[1]->uid;
             std::string removeUid2 = units[2]->uid;
 
-            // 闭包函数：在指定容器中删除 UID
-            auto removeFunc = [&](std::vector<std::shared_ptr<MonsterInstance>>& container, const std::string& uid) {
-                container.erase(
-                    std::remove_if(container.begin(), container.end(), 
-                                   [&](const auto& m){ return m->uid == uid; }), 
-                    container.end()
+            // --- 分离删除逻辑 ---
+
+            // A. 从棋盘中删除（棋盘是动态大小，依然用 erase）
+            auto removeFromBoard = [&](const std::string& uid) {
+                board.erase(
+                    std::remove_if(board.begin(), board.end(), 
+                                   [&](const auto& m){ return m && m->uid == uid; }), 
+                    board.end()
                 );
             };
 
-            // 从棋盘或备战区中将这两个作为材料的怪清除
-            removeFunc(board, removeUid1);
-            removeFunc(bench, removeUid1);
-            removeFunc(board, removeUid2);
-            removeFunc(bench, removeUid2);
+            // B. 从备战区中清除（备战区是固定槽位，绝对不能 erase，只能置空！）
+            auto removeFromBench = [&](const std::string& uid) {
+                for (int i = 0; i < bench.size(); ++i) {
+                    if (bench[i] && bench[i]->uid == uid) {
+                        bench[i] = nullptr; // 留下一个“坑”
+                        break;
+                    }
+                }
+            };
 
-            return true;
+            // 挨个执行清理
+            removeFromBoard(removeUid1);
+            removeFromBench(removeUid1);
+            removeFromBoard(removeUid2);
+            removeFromBench(removeUid2);
+
+            return true; // 成功合成一次
         }
     }
     return false;

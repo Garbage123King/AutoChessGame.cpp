@@ -5,15 +5,28 @@
 #include <optional>
 #include "MonsterData.h"
 
-// 坐标结构
+// 设定引擎物理帧率
+constexpr int TPS = 30;
+
+// 坐标使用浮点数，支持平滑移动和弹道飞行
 struct Position {
-    int row;
-    int col;
+    float row;
+    float col;
+};
+
+// 单位当前状态
+enum class UnitState {
+    Idle,       // 寻敌中
+    Moving,     // 移动中
+    Windup,     // 攻击/施法前摇（举起武器）
+    Backswing,  // 攻击/施法后摇（收起武器，冷却中）
+    Stunned     // 眩晕中
 };
 
 // 战斗过程中的动作类型枚举
 enum class ActionType {
-    Move, Attack, Cast, Heal, Shield, Aoe, Line, SkillDamage, Stun, Slow
+    Move, Attack, Cast, Heal, Shield, Aoe, Line, SkillDamage, Stun, Slow, 
+    Windup, SpawnProjectile, ProjectileHit
 };
 
 // 单个动作记录（例如：A 移动到了 X,Y；A 对 B 造成了 100 伤害）
@@ -36,13 +49,9 @@ struct BattleAction {
 struct UnitSnapshot {
     std::string uid;
     int team; // 0: 玩家, 1: 敌人
-    int row;
-    int col;
-    int hp;
-    int maxHp;
-    int mana;
-    int maxMana;
-    int shield;
+    float row;
+    float col;
+    int hp, maxHp, mana, maxMana, shield;
     bool alive;
     int stunTimer;
 };
@@ -62,6 +71,18 @@ struct BattleResult {
     std::vector<Tick> ticks; // 详细的录像数据 (快速模拟时可为空)
 };
 
+struct Projectile {
+    std::string uid;
+    std::string sourceUid;
+    std::string targetUid;
+    Position currentPos;
+    Position targetPos; // 目标死亡时飞向最后已知位置
+    float speed;        // 每帧飞行的距离 (格/Tick)
+    int damage;
+    DamageType damageType;
+    bool hit = false;   // 是否已命中销毁
+};
+
 // 内部战斗单位实体 (包含所有易变状态)
 struct BattleUnit {
     std::string uid;
@@ -69,19 +90,24 @@ struct BattleUnit {
     int team;
     int star;
     
-    int row;
-    int col;
-    
+    // 位置，支持移动
+    float row;
+    float col;
+
     int hp, maxHp;
-    int atk;
-    int mana, maxMana;
-    int armor, magicResist;
+    int atk, mana, maxMana, armor, magicResist;
     int range;
     float atkSpeed;
     bool isRanged;
     SkillData skill;
-
     bool alive = true;
+
+    // --- 状态机专用参数 ---
+    UnitState state = UnitState::Idle;
+    int stateTicks = 0;             // 当前状态剩余的 Tick 数
+    std::string currentTargetUid;   // 当前锁定的目标
+    Position nextMovePos;           // 移动的下一个格子
+
     int attackCooldown = 0;
     int stunTimer = 0;
     int slowTimer = 0;
@@ -103,6 +129,10 @@ public:
 private:
     int boardRows;
     int boardCols;
+    std::vector<Projectile> activeProjectiles;
+
+    BattleUnit* findUnitByUid(const std::string& uid, const std::vector<std::unique_ptr<BattleUnit>>& allUnits);
+    std::optional<Position> calculateNextPath(BattleUnit* unit, BattleUnit* target, const std::vector<std::unique_ptr<BattleUnit>>& allUnits);
 
     std::unique_ptr<BattleUnit> createBattleUnit(const std::shared_ptr<MonsterInstance>& instance, int team);
     
