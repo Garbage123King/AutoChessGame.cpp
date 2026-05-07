@@ -54,6 +54,11 @@ public:
     int streak = 0; // 正数为连胜，负数为连败
     bool isAlive = true;
 
+    // --- 黑市系统相关 ---
+    int debt = 0;              // 欠款总额
+    int debtRoundsLeft = 0;    // 距离讨债人降临的剩余回合数
+    std::vector<bool> benchLocked = std::vector<bool>(9, false); // 记录哪个备战区槽位被封印了，生成 9 个 false
+
     // 容器管理 (使用智能指针，避免内存泄漏)
     std::vector<std::shared_ptr<MonsterInstance>> board;
     // 把备战区改成固定大小 (例如 9 个槽位)

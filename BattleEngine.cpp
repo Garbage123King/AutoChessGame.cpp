@@ -10,6 +10,9 @@ float BattleEngine::distance(const BattleUnit* a, const BattleUnit* b) const {
 }
 
 int BattleEngine::calcDamage(int baseDamage, DamageType type, int armor, int magicResist) const {
+    if (type == DamageType::TrueDamage) return baseDamage; // 真伤直接返回面板伤害，无视护甲魔抗！
+
+    // ... 其他物理魔法减免逻辑 ...
     float reduction = 0.0f;
     if (type == DamageType::Physical) {
         // 物理伤害减免公式

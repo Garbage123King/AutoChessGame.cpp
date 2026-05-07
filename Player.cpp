@@ -75,25 +75,28 @@ bool Player::canBuyMonster(int shopIndex) const {
 }
 
 std::shared_ptr<MonsterInstance> Player::buyMonster(int shopIndex) {
-    if (!canBuyMonster(shopIndex)) return nullptr;
+    if (!canBuyMonster(shopIndex)) return nullptr; 
     
     auto monster = shop[shopIndex];
     const auto* templateData = GameConfig::getInstance().getMonsterTemplate(monster->id);
     
-    gold -= templateData->cost;
-
-    // --- 核心改造：遍历寻找第一个 nullptr 槽位，把怪塞进去 ---
+    // 寻找第一个【既为空，又没有被封印】的槽位
+    int emptySlot = -1;
     for (int i = 0; i < bench.size(); ++i) {
-        if (bench[i] == nullptr) {
-            bench[i] = monster;
-            break; // 放进去后立刻跳出循环
+        if (!benchLocked[i] && bench[i] == nullptr) {
+            emptySlot = i;
+            break;
         }
     }
-    // 注意：绝对不能再用 bench.push_back(monster) 了！
-    shop[shopIndex] = nullptr; // 商店格子置空
     
-    checkMerge(); // 每次购买后检查是否可以合成升星
+    // 如果虽然有空位，但全被封印了，也不让买
+    if (emptySlot == -1) return nullptr; 
+
+    gold -= templateData->cost;
+    bench[emptySlot] = monster; 
+    shop[shopIndex] = nullptr; 
     
+    checkMerge(); 
     return monster;
 }
 
@@ -130,6 +133,8 @@ int Player::sellMonster(const std::string& uid) {
 bool Player::benchToBoard(int benchIndex, int row, int col) {
     // 1. 检查越界
     if (benchIndex < 0 || benchIndex >= static_cast<int>(bench.size())) return false;
+
+    if (benchLocked[benchIndex]) return false; // 封印槽位严禁交互
 
     // --- 2. 新增：检查这个槽位到底有没有怪（不能把空气派上场！） ---
     if (bench[benchIndex] == nullptr) return false;

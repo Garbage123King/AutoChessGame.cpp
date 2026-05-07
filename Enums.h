@@ -2,7 +2,8 @@
 
 enum class DamageType {
     Physical,
-    Magic
+    Magic,
+    TrueDamage // <-- 真实伤害
 };
 
 enum class TargetType {

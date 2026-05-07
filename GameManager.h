@@ -8,6 +8,8 @@
 
 class GameManager {
 public:
+    std::vector<std::shared_ptr<MonsterInstance>> upcomingEnemies;
+
     // 初始化游戏
     GameManager(const std::string& playerName);
 
@@ -30,6 +32,14 @@ public:
     const std::vector<std::shared_ptr<MonsterInstance>>& getEnemyBoard() const { return enemyBoard; }
     std::string getPhase() const { return phase; }
     int getRound() const { return round; }
+
+    void prepareNextWave(int round); // 准备下一波敌人
+    bool useSeerTent();              // 预言屋接口
+
+    // 黑市接口
+    void signBlackMarketContract();  // 签订高利贷契约
+    bool payBlackMarketDebt();       // 尝试还钱
+    void processRoundEnd();          // 回合结算（扣除还款期限）
 
 private:
     void generateEnemy(); // 生成当前回合的敌方 AI
