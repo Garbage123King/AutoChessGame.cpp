@@ -4,7 +4,9 @@
 #include <memory>
 #include <optional>
 #include "MonsterData.h"
+#include "json.hpp"
 
+using json = nlohmann::json;
 // 设定引擎物理帧率
 constexpr int TPS = 30;
 
@@ -145,3 +147,18 @@ private:
     
     void castSkill(BattleUnit* caster, const std::vector<std::unique_ptr<BattleUnit>>& allUnits, std::vector<BattleAction>& actionsOut);
 };
+
+// 1. 让 JSON 认识你的枚举（把枯燥的数字变成好读的字符串）
+NLOHMANN_JSON_SERIALIZE_ENUM(ActionType, {
+    {ActionType::Windup, "Windup"},
+    {ActionType::SpawnProjectile, "SpawnProjectile"},
+    {ActionType::ProjectileHit, "ProjectileHit"},
+    {ActionType::Cast, "Cast"},
+    {ActionType::Stun, "Stun"},
+    {ActionType::Move, "Move"}
+    })
+
+// 2. 让 JSON 认识你的结构体（把你想导出的变量名原样写进去即可）
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BattleAction, type, uid, targetUid, damage, skillName)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Tick, frame, actions)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BattleResult, winner, ticks)

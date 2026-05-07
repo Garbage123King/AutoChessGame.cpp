@@ -9,6 +9,20 @@
 #include <iomanip> // <-- 新增这个，用于 std::setprecision 格式化时间
 #include <string>  // <--- 新增这一行！教 std::cout 如何打印 std::string
 #include <cstdio>  // 新增：引入 printf
+#include <fstream>
+
+void exportBattleToJson(const BattleResult& result, const std::string& filename) {
+    // 魔法发生的地方：一句话直接把整个 result 对象塞进 json
+    nlohmann::json j = result;
+
+    // 打开文件准备写入
+    std::ofstream o(filename);
+
+    // setw(4) 是为了输出带有 4 个空格缩进的漂亮格式，而不是挤成一团的乱码
+    o << std::setw(4) << j << std::endl;
+
+    std::cout << "\n💾 [系统提示] 战斗录像已成功保存至: " << filename << std::endl;
+}
 
 // --- 专门用于解析 30TPS 录像的战斗日志打印机 (printf 终极稳定版) ---
 void printBattleLog(const BattleResult& result, int maxLines = 100) {
@@ -136,6 +150,9 @@ int main() {
 
     // --- 新增：打印刚刚发生的战斗日志 ---
     printBattleLog(result, 200); // 最多打印 200 条动作记录
+
+    // --- 新增：把录像导出成 JSON 文件 ---
+    exportBattleToJson(result, "battle_record.json");
 
     std::cout << "战斗结束! 胜者: " << result.winner << std::endl;
     std::cout << "玩家存活: " << result.playerSurvived << " | 敌人存活: " << result.enemySurvived << std::endl;
